@@ -17,7 +17,7 @@ from keras.models import load_model
 from keras.layers import Conv2D, MaxPooling2D
 from keras.layers import Activation, Dropout, Flatten, Dense
 from keras.layers.advanced_activations import LeakyReLU
-from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
+from keras.preprocessing.image import img_to_array, load_img
 from keras.callbacks import ModelCheckpoint, History
 
 from PIL import Image
@@ -37,15 +37,40 @@ pp = pprint.PrettyPrinter()
 modes = ['train', 'predict', 'validate']
 
 aparser = argparse.ArgumentParser()
-aparser.add_argument('tSet', help='Choose source training set (inside capture-output)')
+aparser.add_argument('-tSet', help='Choose source training set (from augmentation)')
 aparser.add_argument('mode', help=str(modes))
 aparser.add_argument('name', help='Name of this particular run')
+aparser.add_argument('-augRunName', help='Name of the source augmentation')
 aparser.add_argument('-ls', help='List all current models', action='store_true')
 aparser.add_argument('-useTdata', help='Use training data for prediction/validation instead of validation data', action='store_true')
 aparser.add_argument('-pFile', help='prediction mode: name of the image file to predict')
+aparser.add_argument('-pathCap', help='Specify path to capture-output', nargs=1)
+aparser.add_argument('-pathModel', help='Specify path to models', nargs=1)
+aparser.add_argument('-pathAug', help='Specify path to augmentation-output', nargs=1)
+aparser.add_argument('-save', help='Save config into cfg.json', action='store_true')
 args = aparser.parse_args()
 
-trainingSet = args.tSet
+if os.path.exists('cfg.json'):
+    with open('cfg.json', 'r') as cfgfile:
+        cfg = json.load(cfgfile)
+else:
+    cfg = {}
+if args.pathCap or 'capturepath' not in cfg:
+    cfg['capturepath'] = args.pathCap
+if args.pathModel or 'modelpath' not in cfg:
+    cfg['modelpath'] = args.pathModel
+if args.pathAug or 'augpath' not in cfg:
+    cfg['augpath'] = args.pathAug
+if args.tSet or 'tSet' not in cfg:
+    cfg['tSet'] = args.tSet
+if args.name or 'nameOfRun' not in cfg:
+    cfg['nameOfRun'] = args.augRunName
+if args.save:
+    with open('cfg.json', 'w') as cfgfile:
+        cfgfile.write(json.dumps(cfg, sort_keys=True, indent=2))
+
+
+trainingSet = cfg['tSet']
 mode = args.mode
 nameofrun = args.name
 predfile = args.pFile
@@ -54,7 +79,7 @@ srcT = args.useTdata
 assert mode in modes
 
 # paths
-modelpath = '/media/cae/data2/models/'
+modelpath = cfg['modelpath']
 if args.ls:
     print('available runs: ' + str(os.listdir(os.path.join(modelpath, trainingSet))))
     sys.exit()
@@ -126,7 +151,7 @@ else:
 scaleX = 1920 * 2
 scaleY = 1080
 
-with open(os.path.join('/media/cae/data2/capture-output', trainingSet + '.json')) as jsonfile:
+with open(os.path.join(cfg['capturepath'], trainingSet + '.json')) as jsonfile:
     trainingdata = json.load(jsonfile)
 
 dset = {}
@@ -138,8 +163,8 @@ tset = {}
 tfiles = []
 vset = {}
 vfiles = []
-trainDir = os.path.join('/media/cae/data2/augInput', trainingSet + '-train', 'images')
-valDir = os.path.join('/media/cae/data2/augInput', trainingSet + '-validate', 'images')
+trainDir = os.path.join(cfg['augpath'], cfg['nameOfRun'] + '-train', 'images')
+valDir = os.path.join(cfg['augpath'], cfg['nameOfRun'] + '-validate', 'images')
 for f in os.listdir(trainDir):
     tset[f] = dset[f.split('.')[0].split('_')[0]]
     tfiles.append(f)

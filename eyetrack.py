@@ -2,39 +2,43 @@
 import cv2
 import numpy as np
 import sys, os
-import Xlib.display
-import pprint
 import json
-import traceback
 import argparse
-import matplotlib.pyplot as plt
-import matplotlib
 import threading
 import queue
-import asyncio
 import time
 
-import tensorflow
 import keras
-from keras import optimizers
-from keras.models import Sequential
 from keras.models import load_model
-from keras.layers import Conv2D, MaxPooling2D
-from keras.layers import Activation, Dropout, Flatten, Dense
-from keras.layers.advanced_activations import LeakyReLU
-from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
-from keras.callbacks import ModelCheckpoint, History
+from keras.preprocessing.image import img_to_array
 
-from PIL import Image
 
 aparser = argparse.ArgumentParser()
-aparser.add_argument('tSet', help='Choose source training set (inside capture-output)')
-aparser.add_argument('name', help='Name of this particular run')
-aparser.add_argument('epoch', help='Model of which epoch to load (leave empty to select last)', nargs='?', const='')
+aparser.add_argument('-tSet', help='Choose source training set (inside capture-output)')
+aparser.add_argument('-name', help='Name of this particular run')
+aparser.add_argument('-epoch', help='Model of which epoch to load (leave empty to select last)', nargs='?', const='')
+aparser.add_argument('-path', help='Specify path to models', nargs=1)
 aparser.add_argument('-view', help='Show processed frame', action='store_true')
+aparser.add_argument('-save', help='Save config into cfg.json', action='store_true')
 args = aparser.parse_args()
 
-modelPath = os.path.join('/media/cae/data2/models', args.tSet, args.name, 'chkp')
+if os.path.exists('cfg.json'):
+    with open('cfg.json', 'r') as cfgfile:
+        cfg = json.load(cfgfile)
+else:
+    cfg = {}
+if args.path or 'modelpath' not in cfg:
+    cfg['modelpath'] = args.path
+if args.tSet or 'tSet' not in cfg:
+    cfg['tSet'] = args.tSet
+if args.name or 'nameOfRun' not in cfg:
+    cfg['nameOfRun'] = args.name
+if args.save:
+    with open('cfg.json', 'w') as cfgfile:
+        cfgfile.write(json.dumps(cfg, sort_keys=True, indent=2))
+    
+modelPath = os.path.join(cfg['modelpath'], cfg['tset'], cfg['nameOfRun'], 'chkp')
+
 if not args.epoch:
     lastModel = sorted(os.listdir(modelPath))[-1]
     modelPath = os.path.join(modelPath, lastModel)
@@ -109,4 +113,4 @@ finally:
     cHandler.join()
     cThread.join()
     cThread.stop()
-    cHandler.stop()
+    cHandler.stop()   

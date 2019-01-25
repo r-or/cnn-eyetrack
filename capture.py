@@ -2,49 +2,42 @@
 import cv2
 import numpy as np
 import sys, os
-import Xlib.display
-import pprint
 import json
 import traceback
-from pynput import mouse, keyboard
+from pynput import mouse
 import argparse
 import matplotlib.pyplot as plt
 import matplotlib
 import threading
 import queue
-import asyncio
 import time
 
-minDisp = False
 minFrames = 30      # minimum amount of frames to capture per coordinate
-cfgfile = 'capture.cfg.json'
 aparser = argparse.ArgumentParser()
 aparser.add_argument('-tSet', help='Choose training set')
 aparser.add_argument('-outputDir', help='Choose directory to save training data')
 aparser.add_argument('-view', help='Visualise training data', action='store_true')
 aparser.add_argument('-fs', help='Full screen training: supply display config (e.g. xx/xx for 4 displays in 2 rows)')
+aparser.add_argument('-save', help='Save config into cfg.json', action='store_true')
 args = aparser.parse_args()
 
 # read / write cfg file
-if os.path.isfile(cfgfile):
-    with open(cfgfile) as jsonfile:
-        config = json.load(jsonfile)
+if os.path.isfile('cfg.json'):
+    with open('cfg.json', 'r') as cfgfile:
+        cfg = json.load(cfgfile)
 else:
-    config = {'tSet': 'training',
-              'outputDir': './capture-output'}
+    cfg = {}
+if args.tSet or 'tSet' not in cfg:
+    cfg['tSet'] = args.tSet
+if args.outputDir or 'capturepath' not in cfg:
+    cfg['capturepath'] = args.outputDir
+if args.save:
+    with open('cfg.json', 'w') as cfgfile:
+        cfgfile.write(json.dumps(cfg, sort_keys=True, indent=2))
 
-if args.tSet:
-    config['tSet'] = args.tSet
-
-if args.outputDir:
-    config['outputDir'] = args.outputDir
-
-with open(cfgfile, 'w') as jsonfile:
-    jsonfile.write(json.dumps(config, sort_keys = True, indent = 2))
-
-outputDir = os.path.realpath(config['outputDir'])
-trainingFile = os.path.join(outputDir, '{}.json'.format(config['tSet']))
-outputDataDir = os.path.join(outputDir, config['tSet'])
+outputDir = os.path.realpath(cfg['capturepath'])
+trainingFile = os.path.join(outputDir, '{}.json'.format(cfg['tSet']))
+outputDataDir = os.path.join(outputDir, cfg['tSet'])
 
 # read database file:
 if os.path.isfile(trainingFile):
@@ -59,6 +52,11 @@ if os.path.isfile(trainingFile):
         axes[0].set_title('log hist')
         axes[1].scatter(X, Y, marker = 'x')
         axes[1].set_title('{} samples'.format(len(trainingData)))
+        for ax in axes:
+            ax.set_xlabel('pixel vertical')
+            ax.set_ylabel('pixel horizontal')
+        fig = plt.gcf()
+        fig.canvas.set_window_title(cfg['tSet'])
         plt.show()
         sys.exit()
 else:
@@ -76,6 +74,11 @@ def savefile():
 if args.fs:
     # show fs training app
     import tkinter as tk
+    print('Use arrowkeys to navigate to a node.')
+    print('Use <ENTER> to start recording at this node.')
+    print('Use <SPACE> to switch to next screen.')
+    print('Once a node is green enough frames have been recorded!')
+    print('Recording can be resumed any time.')
 
     capQ = queue.Queue(20)
     class CaptureThread(threading.Thread):
@@ -331,17 +334,5 @@ else:
             traceback.print_exc()
             savefile()
 
-    # while cap.isOpened():
-    #     ret, frame = cap.read()
-    #     frame = cv2.flip(frame, 1)
-    #     if ret:
-    #         cv2.imshow('Frame', frame)
-    #         if cv2.waitKey(25) & 0xFF == ord('q'):
-    #             break
-    #     else:
-    #         break
-    #
-    # print()
 
     cap.release()
-    # cv2.destroyAllWindows()
